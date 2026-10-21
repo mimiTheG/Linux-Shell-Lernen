@@ -1,9 +1,10 @@
-// App-Steuerung: Navigation, Fortschritt, Übungen, Terminal und Spickzettel.
+// App-Steuerung: Navigation, Fortschritt, Übungen, Training, Challenges und Spickzettel.
 (function () {
   'use strict';
 
   const { Shell, MANUAL } = window.LinuxShell;
   const { CHAPTERS } = window.Lessons;
+  const { DRILLS, prepare, taskCount } = window.Drills;
 
   const view = document.getElementById('view');
   const titleEl = document.getElementById('title');
@@ -32,8 +33,11 @@
   };
 
   const PROGRESS_KEY = 'shelltrainer.progress';
+  const DRILL_KEY = 'shelltrainer.drills';
+  const BEST_KEY = 'shelltrainer.challengeBest';
   const SANDBOX_KEY = 'shelltrainer.sandbox';
   let progress = store.get(PROGRESS_KEY, {});
+  let drillProgress = store.get(DRILL_KEY, {});
 
   const exKey = (ch, ex) => ch.id + '/' + ex.id;
   const isDone = (ch, ex) => !!progress[exKey(ch, ex)];
@@ -45,6 +49,15 @@
   const totalCount = CHAPTERS.reduce((n, ch) => n + ch.exercises.length, 0);
   const totalDone = () => CHAPTERS.reduce((n, ch) => n + chapterDone(ch), 0);
 
+  const drillTaskDone = (drill, i) => !!(drillProgress[drill.id] && drillProgress[drill.id][i]);
+  const drillDone = (drill) => drill.tasks.filter((_, i) => drillTaskDone(drill, i)).length;
+  const markDrillTask = (drill, i) => {
+    drillProgress[drill.id] = drillProgress[drill.id] || {};
+    drillProgress[drill.id][i] = true;
+    store.set(DRILL_KEY, drillProgress);
+  };
+  const drillTotalDone = () => DRILLS.reduce((n, d) => n + drillDone(d), 0);
+
   // --- Hilfen ---------------------------------------------------------------
 
   function h(tag, attrs = {}, ...children) {
@@ -54,7 +67,7 @@
       else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
       else if (v !== false && v !== null && v !== undefined) el.setAttribute(k, v === true ? '' : v);
     }
-    for (const c of children.flat()) if (c !== null && c !== undefined) el.append(c);
+    for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) el.append(c);
     return el;
   }
 
@@ -63,14 +76,23 @@
     return h('div', { class: 'progress', role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('span', { style: 'width:' + pct + '%' }));
   }
 
-  function setChrome({ title, back, tab, extra }) {
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function setChrome({ title, back, tab, extra, focus }) {
     titleEl.textContent = title;
     document.title = title === 'Shell Trainer' ? title : title + ' · Shell Trainer';
     backBtn.hidden = !back;
     backBtn.onclick = back ? () => navigate(back) : null;
     extraEl.replaceChildren(...(extra ? [extra] : []));
     for (const b of tabbar.querySelectorAll('button')) b.classList.toggle('active', b.dataset.tab === tab);
-    document.body.classList.toggle('in-exercise', tab === 'exercise');
+    document.body.classList.toggle('in-exercise', !!focus);
   }
 
   function navigate(hash) {
@@ -78,23 +100,116 @@
     else location.hash = hash;
   }
 
-  // --- Ansichten ------------------------------------------------------------
+  // Ersetzt den Inhalt der Hauptansicht; Arrays werden flach gemacht, leere Einträge ignoriert.
+  const show = (...nodes) => view.replaceChildren(...nodes.flat(Infinity).filter((n) => n !== null && n !== undefined && n !== false));
+
+  const isTouch = () => matchMedia('(pointer: coarse)').matches;
+
+  // --- Aufgabenansicht (für Lektionen, Training und Challenges) ---------------
+  //
+  // o: { chrome, meta, heading, task, explain, explainOpen, hint, solution,
+  //      setup(shell), check(ctx), onSolved(), onHelp(), next: { label, go },
+  //      actions: [Element] }
+
+  function renderTaskView(o) {
+    setChrome({ ...o.chrome, focus: true });
+
+    const shell = new Shell();
+    o.setup(shell);
+
+    const hintBox = h('div', { class: 'hint', hidden: true });
+    let term;
+    const showHint = (isSolution) => {
+      if (o.onHelp) o.onHelp(isSolution);
+      hintBox.hidden = false;
+      hintBox.replaceChildren(
+        h('span', {}, isSolution ? '👀 Lösung: ' : '💡 Tipp: '),
+        isSolution ? h('code', {}, o.solution) : o.hint,
+        isSolution
+          ? h(
+              'button',
+              {
+                class: 'link',
+                onclick: () => {
+                  term.input.value = o.solution;
+                  term.focus();
+                },
+              },
+              'einfügen'
+            )
+          : null
+      );
+    };
+
+    const success = h(
+      'div',
+      { class: 'success', hidden: true, role: 'status' },
+      h('span', { class: 'success-text' }, '✅ Geschafft!'),
+      o.next ? h('button', { class: 'primary small', onclick: o.next.go }, o.next.label) : null
+    );
+
+    const card = h(
+      'section',
+      { class: 'task-card' },
+      h('div', { class: 'task-meta' }, o.meta),
+      o.heading ? h('h2', {}, o.heading) : null,
+      h('p', { class: 'task', html: o.task }),
+      o.explain ? h('details', { class: 'explain', open: o.explainOpen }, h('summary', {}, 'Erklärung'), h('p', { html: o.explain })) : null,
+      h(
+        'div',
+        { class: 'task-actions' },
+        h('button', { class: 'chip', onclick: () => showHint(false) }, '💡 Tipp'),
+        h('button', { class: 'chip', onclick: () => showHint(true) }, '👀 Lösung'),
+        o.actions || []
+      ),
+      hintBox,
+      success
+    );
+
+    const termWrap = h('div', { class: 'term-wrap' });
+    show(h('div', { class: 'exercise' }, card, termWrap));
+
+    let solved = false;
+    term = new window.Terminal(termWrap, shell, {
+      onCommand(line, output) {
+        if (solved) return;
+        let ok = false;
+        try {
+          ok = o.check({ shell, line, output });
+        } catch (e) {
+          ok = false;
+        }
+        if (!ok) return;
+        solved = true;
+        o.onSolved();
+        success.hidden = false;
+        card.classList.add('solved');
+        if (navigator.vibrate) navigator.vibrate(40);
+        card.scrollTop = card.scrollHeight;
+      },
+    });
+    if (!isTouch()) term.focus();
+  }
+
+  const restartButton = (fn) => h('button', { class: 'icon-btn', 'aria-label': 'Aufgabe neu starten', title: 'Neu starten', onclick: fn }, '↺');
+
+  // --- Lernen ---------------------------------------------------------------
 
   function renderHome() {
     setChrome({ title: 'Shell Trainer', tab: 'learn' });
     const done = totalDone();
     const next = findNext();
-    view.replaceChildren(
+    show(
       h(
         'section',
         { class: 'hero' },
         h('div', { class: 'hero-prompt', 'aria-hidden': 'true' }, 'lerner@linux:~$ ', h('span', { class: 'cursor' })),
         h('h2', {}, done ? 'Weiter geht’s!' : 'Lerne die Linux-Shell'),
-        h('p', {}, done ? done + ' von ' + totalCount + ' Übungen geschafft.' : 'Kleine Aufgaben, echtes Tippen, sofortiges Feedback. Alles läuft offline in einer sicheren Übungs-Shell.'),
+        h('p', {}, done ? done + ' von ' + totalCount + ' Lektionen geschafft.' : 'Kleine Aufgaben, echtes Tippen, sofortiges Feedback. Alles läuft offline in einer sicheren Übungs-Shell.'),
         progressBar(done, totalCount),
         next
           ? h('button', { class: 'primary', onclick: () => navigate('#/uebung/' + next.ch.id + '/' + next.ex.id) }, done ? 'Weiter mit „' + next.ex.title + '“' : 'Erste Übung starten')
-          : h('p', { class: 'all-done' }, '🏆 Alle Übungen geschafft! Im Terminal kannst du frei weiter üben.')
+          : h('button', { class: 'primary', onclick: () => navigate('#/training') }, '🏆 Alles gelernt – ab ins Training!')
       ),
       h(
         'ul',
@@ -125,7 +240,8 @@
 
   function renderChapter(ch) {
     setChrome({ title: ch.title, back: '#/', tab: 'learn' });
-    view.replaceChildren(
+    const drills = DRILLS.filter((d) => d.chapter === ch.id);
+    show(
       h('p', { class: 'chapter-intro' }, ch.intro),
       h(
         'ol',
@@ -142,7 +258,15 @@
             )
           )
         )
-      )
+      ),
+      drills.length
+        ? h(
+            'section',
+            {},
+            h('h3', { class: 'section-title' }, 'Mehr üben zu diesem Kapitel'),
+            h('div', { class: 'drill-grid' }, drills.map(drillCard))
+          )
+        : null
     );
   }
 
@@ -159,73 +283,245 @@
 
   function renderExercise(ch, ex) {
     const idx = ch.exercises.indexOf(ex);
-    const restart = h('button', { class: 'icon-btn', 'aria-label': 'Übung neu starten', title: 'Neu starten', onclick: () => renderExercise(ch, ex) }, '↺');
-    setChrome({ title: ch.title, back: '#/kapitel/' + ch.id, tab: 'exercise', extra: restart });
-
-    const shell = new Shell();
-    if (ex.setup) ex.setup(shell);
-
-    const hintBox = h('div', { class: 'hint', hidden: true });
-    const showHint = (text, isSolution) => {
-      hintBox.hidden = false;
-      hintBox.replaceChildren(
-        h('span', {}, isSolution ? '👀 Lösung: ' : '💡 Tipp: '),
-        isSolution ? h('code', {}, text) : text,
-        isSolution ? h('button', { class: 'link', onclick: () => { term.input.value = text; term.focus(); } }, 'einfügen') : null
-      );
-    };
-
     const nextEx = ch.exercises[idx + 1] ? { ch, ex: ch.exercises[idx + 1] } : findNext(ch, ex);
-    const success = h(
-      'div',
-      { class: 'success', hidden: true, role: 'status' },
-      h('span', { class: 'success-text' }, '✅ Geschafft!'),
-      nextEx
-        ? h('button', { class: 'primary small', onclick: () => navigate('#/uebung/' + nextEx.ch.id + '/' + nextEx.ex.id) }, 'Weiter →')
-        : h('button', { class: 'primary small', onclick: () => navigate('#/') }, 'Übersicht')
-    );
-
-    const card = h(
-      'section',
-      { class: 'task-card' },
-      h('div', { class: 'task-meta' }, ch.icon + ' Übung ' + (idx + 1) + ' von ' + ch.exercises.length + (isDone(ch, ex) ? ' · ✓ erledigt' : '')),
-      h('h2', {}, ex.title),
-      h('p', { class: 'task', html: ex.task }),
-      h('details', { class: 'explain', open: !isDone(ch, ex) }, h('summary', {}, 'Erklärung'), h('p', { html: ex.explain })),
-      h(
-        'div',
-        { class: 'task-actions' },
-        h('button', { class: 'chip', onclick: () => showHint(ex.hint) }, '💡 Tipp'),
-        h('button', { class: 'chip', onclick: () => showHint(ex.solution, true) }, '👀 Lösung')
-      ),
-      hintBox,
-      success
-    );
-
-    const termWrap = h('div', { class: 'term-wrap' });
-    view.replaceChildren(h('div', { class: 'exercise' }, card, termWrap));
-
-    let solved = false;
-    const term = new window.Terminal(termWrap, shell, {
-      onCommand(line, output) {
-        if (solved) return;
-        let ok = false;
-        try {
-          ok = ex.check({ shell, line, output });
-        } catch (e) {
-          ok = false;
-        }
-        if (!ok) return;
-        solved = true;
-        markDone(ch, ex);
-        success.hidden = false;
-        card.classList.add('solved');
-        if (navigator.vibrate) navigator.vibrate(40);
-        card.scrollTop = card.scrollHeight;
-      },
+    const chapterFinished = !ch.exercises[idx + 1];
+    const drills = DRILLS.filter((d) => d.chapter === ch.id);
+    renderTaskView({
+      chrome: { title: ch.title, back: '#/kapitel/' + ch.id, extra: restartButton(() => renderExercise(ch, ex)) },
+      meta: ch.icon + ' Übung ' + (idx + 1) + ' von ' + ch.exercises.length + (isDone(ch, ex) ? ' · ✓ erledigt' : ''),
+      heading: ex.title,
+      task: ex.task,
+      explain: ex.explain,
+      explainOpen: !isDone(ch, ex),
+      hint: ex.hint,
+      solution: ex.solution,
+      setup: (shell) => ex.setup && ex.setup(shell),
+      check: ex.check,
+      onSolved: () => markDone(ch, ex),
+      next:
+        chapterFinished && drills.length
+          ? { label: 'Kapitel üben →', go: () => navigate('#/kapitel/' + ch.id) }
+          : nextEx
+            ? { label: 'Weiter →', go: () => navigate('#/uebung/' + nextEx.ch.id + '/' + nextEx.ex.id) }
+            : { label: 'Übersicht', go: () => navigate('#/') },
     });
-    if (!matchMedia('(pointer: coarse)').matches) term.focus();
   }
+
+  // --- Training -------------------------------------------------------------
+
+  // Themen, deren Kapitel schon begonnen wurde (oder die schon geübt wurden).
+  function learnedDrills() {
+    const started = new Set(CHAPTERS.filter((ch) => chapterDone(ch) > 0).map((ch) => ch.id));
+    const pool = DRILLS.filter((d) => started.has(d.chapter) || drillDone(d) > 0);
+    return pool.length ? pool : DRILLS.filter((d) => d.chapter === CHAPTERS[0].id);
+  }
+
+  function drillCard(drill) {
+    const d = drillDone(drill);
+    const n = drill.tasks.length;
+    const firstOpen = drill.tasks.findIndex((_, i) => !drillTaskDone(drill, i));
+    return h(
+      'a',
+      { class: 'card drill-card' + (d === n ? ' done' : ''), href: '#/drill/' + drill.id + '/' + (firstOpen < 0 ? 0 : firstOpen) },
+      h('code', { class: 'drill-title' }, drill.title),
+      h('span', { class: 'muted small' }, drill.subtitle),
+      h('span', { class: 'drill-count' }, d + ' / ' + n + (d === n ? ' ✓' : '')),
+      progressBar(d, n)
+    );
+  }
+
+  function renderTraining() {
+    setChrome({ title: 'Training', tab: 'training' });
+    const best = store.get(BEST_KEY, null);
+    const pool = learnedDrills();
+    const learnedChapters = new Set(pool.map((d) => d.chapter));
+    show(
+      h(
+        'section',
+        { class: 'hero challenge-hero' },
+        h('div', { class: 'hero-prompt', 'aria-hidden': 'true' }, '$ challenge --start'),
+        h('h2', {}, '⚡ Challenge'),
+        h(
+          'p',
+          {},
+          CHALLENGE_LENGTH + ' zufällige Aufgaben aus ' + (learnedChapters.size === CHAPTERS.length ? 'allen Kapiteln' : 'den Kapiteln, die du schon begonnen hast') + '. Ohne Erklärung – zeig, was du kannst!'
+        ),
+        best ? h('p', { class: 'best' }, '🏅 Bestwert: ' + best.score + ' / ' + best.total + ' Punkte') : null,
+        h('button', { class: 'primary', onclick: () => startChallenge() }, 'Challenge starten')
+      ),
+      h('div', { class: 'section-head' }, h('h3', { class: 'section-title' }, 'Gezielt üben'), h('span', { class: 'muted small' }, drillTotalDone() + ' / ' + taskCount)),
+      CHAPTERS.map((ch) => {
+        const drills = DRILLS.filter((d) => d.chapter === ch.id);
+        if (!drills.length) return null;
+        return h('section', { class: 'drill-group' }, h('h4', {}, ch.icon + ' ' + ch.title), h('div', { class: 'drill-grid' }, drills.map(drillCard)));
+      }),
+      h(
+        'a',
+        { class: 'card sandbox-link', href: '#/terminal' },
+        h('span', { class: 'chapter-icon', 'aria-hidden': 'true' }, '⌨️'),
+        h('span', {}, h('strong', {}, 'Freies Terminal'), h('span', { class: 'muted small' }, 'Ohne Aufgabe frei ausprobieren'))
+      )
+    );
+  }
+
+  function taskDots(drill, current) {
+    return h(
+      'span',
+      { class: 'dots' },
+      drill.tasks.map((_, i) =>
+        h('a', {
+          href: '#/drill/' + drill.id + '/' + i,
+          class: 'dot' + (drillTaskDone(drill, i) ? ' done' : '') + (i === current ? ' current' : ''),
+          'aria-label': 'Aufgabe ' + (i + 1) + (drillTaskDone(drill, i) ? ' (erledigt)' : ''),
+        })
+      )
+    );
+  }
+
+  function renderDrill(drill, i) {
+    const task = drill.tasks[i];
+    const p = prepare(drill, task);
+    const nextOpen = drill.tasks.findIndex((_, k) => k > i && !drillTaskDone(drill, k));
+    const next =
+      i + 1 < drill.tasks.length
+        ? { label: 'Nächste →', go: () => navigate('#/drill/' + drill.id + '/' + (i + 1)) }
+        : nextOpen >= 0
+          ? { label: 'Weiter →', go: () => navigate('#/drill/' + drill.id + '/' + nextOpen) }
+          : { label: 'Fertig ✓', go: () => navigate('#/training') };
+    renderTaskView({
+      chrome: { title: drill.title, back: '#/training', extra: restartButton(() => renderDrill(drill, i)) },
+      meta: [h('span', {}, drill.subtitle + ' · ' + (i + 1) + ' / ' + drill.tasks.length), taskDots(drill, i)],
+      task: task.task,
+      hint: drill.hint,
+      solution: task.solution,
+      setup: p.setup,
+      check: p.check,
+      onSolved: () => markDrillTask(drill, i),
+      next,
+    });
+  }
+
+  // --- Challenge --------------------------------------------------------------
+
+  const CHALLENGE_LENGTH = 10;
+  let challenge = null;
+
+  function startChallenge() {
+    // Pro Thema eine Warteschlange, ungelöste Aufgaben zuerst; dann reihum
+    // aus allen Themen ziehen, damit die Challenge möglichst gemischt ist.
+    const queues = shuffle(learnedDrills()).map((drill) => {
+      const idx = shuffle(drill.tasks.map((_, i) => i));
+      return { drill, queue: [...idx.filter((i) => !drillTaskDone(drill, i)), ...idx.filter((i) => drillTaskDone(drill, i))] };
+    });
+    const items = [];
+    while (items.length < CHALLENGE_LENGTH && queues.some((q) => q.queue.length)) {
+      for (const q of queues) {
+        if (items.length < CHALLENGE_LENGTH && q.queue.length) items.push({ drill: q.drill, index: q.queue.shift(), result: null, helped: false });
+      }
+    }
+    challenge = { items: shuffle(items), pos: 0 };
+    navigate('#/challenge');
+  }
+
+  const POINTS = { solved: 2, helped: 1, skipped: 0 };
+
+  function renderChallenge() {
+    if (!challenge) return startChallenge();
+    if (challenge.pos >= challenge.items.length) return renderChallengeResult();
+    const item = challenge.items[challenge.pos];
+    const task = item.drill.tasks[item.index];
+    const p = prepare(item.drill, task);
+    const advance = () => {
+      challenge.pos++;
+      renderChallenge();
+    };
+    const skip = h(
+      'button',
+      {
+        class: 'chip',
+        onclick: () => {
+          if (!item.result) item.result = 'skipped';
+          advance();
+        },
+      },
+      '⏭ Überspringen'
+    );
+    const score = challenge.items.reduce((n, x) => n + (x.result ? POINTS[x.result] : 0), 0);
+    renderTaskView({
+      chrome: {
+        title: 'Challenge',
+        back: '#/training',
+        extra: h('span', { class: 'score-pill', 'aria-label': score + ' Punkte' }, score + ' P'),
+      },
+      meta: [h('span', {}, '⚡ Aufgabe ' + (challenge.pos + 1) + ' von ' + challenge.items.length), challengeDots()],
+      task: task.task,
+      hint: item.drill.hint,
+      solution: task.solution,
+      setup: p.setup,
+      check: p.check,
+      onHelp: () => {
+        item.helped = true;
+      },
+      onSolved: () => {
+        item.result = item.helped ? 'helped' : 'solved';
+        markDrillTask(item.drill, item.index);
+        skip.remove();
+      },
+      next: { label: challenge.pos + 1 < challenge.items.length ? 'Weiter →' : 'Ergebnis →', go: advance },
+      actions: [skip],
+    });
+  }
+
+  function challengeDots() {
+    return h(
+      'span',
+      { class: 'dots' },
+      challenge.items.map((x, i) => h('span', { class: 'dot' + (x.result ? ' ' + x.result : '') + (i === challenge.pos ? ' current' : '') }))
+    );
+  }
+
+  function renderChallengeResult() {
+    setChrome({ title: 'Ergebnis', back: '#/training', tab: 'training' });
+    const items = challenge.items;
+    const score = items.reduce((n, x) => n + POINTS[x.result || 'skipped'], 0);
+    const total = items.length * POINTS.solved;
+    const best = store.get(BEST_KEY, null);
+    const isBest = !best || score > best.score;
+    if (isBest) store.set(BEST_KEY, { score, total });
+    const pct = score / total;
+    const verdict = pct === 1 ? '🏆 Perfekt!' : pct >= 0.8 ? '🎉 Stark!' : pct >= 0.5 ? '👍 Gut gemacht!' : '💪 Dranbleiben!';
+    const label = { solved: '✅ allein gelöst', helped: '💡 mit Hilfe', skipped: '⏭ übersprungen' };
+    const weak = [...new Set(items.filter((x) => x.result !== 'solved').map((x) => x.drill))];
+
+    show(
+      h(
+        'section',
+        { class: 'hero result-hero' },
+        h('h2', {}, verdict),
+        h('p', { class: 'result-score' }, score + ' / ' + total + ' Punkte'),
+        isBest && best ? h('p', { class: 'best' }, '🏅 Neuer Bestwert!') : null,
+        h('button', { class: 'primary', onclick: () => startChallenge() }, 'Neue Challenge')
+      ),
+      h(
+        'ol',
+        { class: 'result-list' },
+        items.map((x) =>
+          h(
+            'li',
+            { class: 'card' },
+            h('span', { class: 'result-badge ' + (x.result || 'skipped') }, label[x.result || 'skipped']),
+            h('span', { class: 'small', html: x.drill.tasks[x.index].task }),
+            h('code', { class: 'small' }, x.drill.tasks[x.index].solution)
+          )
+        )
+      ),
+      weak.length
+        ? h('section', {}, h('h3', { class: 'section-title' }, 'Das solltest du nochmal üben'), h('div', { class: 'drill-grid' }, weak.map(drillCard)))
+        : null
+    );
+  }
+
+  // --- Freies Terminal --------------------------------------------------------
 
   let sandbox = null;
   function loadSandbox() {
@@ -256,18 +552,20 @@
       },
       '↺'
     );
-    setChrome({ title: 'Freies Terminal', tab: 'sandbox', extra: reset });
+    setChrome({ title: 'Freies Terminal', back: '#/training', tab: 'training', extra: reset });
     if (!sandbox) sandbox = loadSandbox();
     const wrap = h('div', { class: 'term-wrap full' });
-    view.replaceChildren(wrap);
+    show(wrap);
     const term = new window.Terminal(wrap, sandbox, {
       welcome: 'Willkommen im freien Terminal! Hier kannst du alles ausprobieren – nichts kann kaputtgehen.\nTippe \x1b[33mhelp\x1b[0m für alle Befehle oder \x1b[33mtree\x1b[0m für einen Überblick.\n',
       onCommand() {
         store.set(SANDBOX_KEY, { root: sandbox.root, cwd: sandbox.cwd, history: sandbox.history.slice(-100) });
       },
     });
-    if (!matchMedia('(pointer: coarse)').matches) term.focus();
+    if (!isTouch()) term.focus();
   }
+
+  // --- Spickzettel ------------------------------------------------------------
 
   const GROUPS = [
     ['Navigation', ['pwd', 'ls', 'cd', 'tree']],
@@ -319,7 +617,7 @@
     };
     search.addEventListener('input', draw);
     draw();
-    view.replaceChildren(search, list);
+    show(search, list);
   }
 
   // --- Router ---------------------------------------------------------------
@@ -335,6 +633,15 @@
       const ch = CHAPTERS.find((c) => c.id === parts[1]);
       const ex = ch && ch.exercises.find((e) => e.id === parts[2]);
       if (ex) return renderExercise(ch, ex);
+    } else if (parts[0] === 'training') {
+      return renderTraining();
+    } else if (parts[0] === 'drill') {
+      const drill = DRILLS.find((d) => d.id === parts[1]);
+      const i = parseInt(parts[2] || '0', 10);
+      if (drill && drill.tasks[i]) return renderDrill(drill, i);
+      if (drill) return renderDrill(drill, 0);
+    } else if (parts[0] === 'challenge') {
+      return renderChallenge();
     } else if (parts[0] === 'terminal') {
       return renderSandbox();
     } else if (parts[0] === 'spickzettel') {
@@ -346,7 +653,7 @@
   tabbar.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    navigate({ learn: '#/', sandbox: '#/terminal', reference: '#/spickzettel' }[b.dataset.tab]);
+    navigate({ learn: '#/', training: '#/training', reference: '#/spickzettel' }[b.dataset.tab]);
   });
   window.addEventListener('hashchange', render);
   render();

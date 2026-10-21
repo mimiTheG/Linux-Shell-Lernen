@@ -4,6 +4,6 @@
   "description": "Linux-Befehle interaktiv üben – installierbare Web-App für Android",
   "scripts": {
     "start": "npx http-server -p 8080 -c-1 .",
-    "test": "node tests/lessons.test.js"
+    "test": "node tests/lessons.test.js && node tests/drills.test.js"
   }
 }

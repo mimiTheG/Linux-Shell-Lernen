@@ -645,3 +645,164 @@ body:not(.in-exercise) .keybar {
     padding: 16px max(16px, calc((100% - 760px) / 2));
   }
 }
+
+/* --- Training & Challenge --------------------------------------------------- */
+
+.section-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 24px 4px 10px;
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-right: 4px;
+}
+.drill-group h4 {
+  margin: 16px 4px 8px;
+  font-size: 1rem;
+}
+.drill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.drill-card {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 12px 14px;
+}
+.drill-title {
+  background: none;
+  padding: 0;
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--accent);
+}
+.drill-count {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.drill-card.done {
+  border-color: var(--accent);
+}
+.drill-card .progress {
+  margin-top: 4px;
+}
+
+.challenge-hero .hero-prompt {
+  color: var(--term-hl);
+}
+.best {
+  color: var(--term-hl) !important;
+  font-weight: 600;
+  opacity: 1 !important;
+}
+.sandbox-link {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-top: 24px;
+}
+.sandbox-link > span:last-child {
+  display: grid;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dots {
+  display: inline-flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  display: inline-block;
+}
+a.dot {
+  position: relative;
+}
+a.dot::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+.dot.done,
+.dot.solved {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.dot.helped {
+  background: var(--term-hl);
+  border-color: var(--term-hl);
+}
+.dot.skipped {
+  background: var(--term-err);
+  border-color: var(--term-err);
+}
+.dot.current {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.score-pill {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-right: 8px;
+}
+
+.result-hero {
+  text-align: center;
+}
+.result-score {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff !important;
+  opacity: 1 !important;
+  margin: 4px 0 12px !important;
+}
+.result-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.result-list li {
+  display: grid;
+  gap: 4px;
+}
+.result-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.result-badge.solved {
+  color: var(--accent);
+}
+.result-badge.helped {
+  color: #b7860b;
+}
+.result-badge.skipped {
+  color: var(--term-err);
+}
+.result-list code {
+  justify-self: start;
+}

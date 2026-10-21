@@ -1,12 +1,13 @@
 // Service Worker: speichert alle Dateien, damit die App offline läuft.
 // Bei Änderungen an den Dateien die Versionsnummer erhöhen.
-const CACHE = 'shelltrainer-v1';
+const CACHE = 'shelltrainer-v2';
 const FILES = [
   './',
   'index.html',
   'css/style.css',
   'js/shell.js',
   'js/lessons.js',
+  'js/drills.js',
   'js/terminal.js',
   'js/app.js',
   'manifest.webmanifest',

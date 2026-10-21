@@ -11,7 +11,11 @@ Browser, auf deinem Gerät wird nichts ausgeführt.
   `tail`, `wc`), Suchen & Filtern (`grep`, `find`, `sort`, `uniq`, `cut`, Pipes),
   Rechte & Skripte (`chmod`, `./skript.sh`) und Profi-Tricks (`&&`, Variablen, lange Pipes)
 - Zu jeder Übung gibt es eine Erklärung, einen Tipp und die Lösung. Der Fortschritt wird gespeichert.
-- **Freies Terminal** zum Ausprobieren. Dein Dateisystem bleibt erhalten und lässt sich zurücksetzen.
+- **Training** mit 243 weiteren Aufgaben in 39 Themen, eins pro Befehls-Options-Kombination
+  (z. B. `grep -v`, `find -type`, `cut -d -f`, `chmod 755`), jeweils 5–8 Aufgaben
+- **Challenges**: 10 zufällige Aufgaben aus den Kapiteln, die du schon begonnen hast, ohne Erklärung.
+  Allein gelöst gibt 2 Punkte, mit Tipp/Lösung 1 Punkt. Am Ende siehst du, was du nochmal üben solltest.
+- **Freies Terminal** zum Ausprobieren (im Training-Bereich). Dein Dateisystem bleibt erhalten und lässt sich zurücksetzen.
 - **Spickzettel** mit Suche
 - **Sondertasten-Leiste** (Tab, ↑/↓, `|`, `/`, `~`, `>` …), weil Handy-Tastaturen diese Zeichen kaum bieten
 - Tab-Vervollständigung, Befehlsverlauf, farbige Ausgabe, Dark Mode
@@ -34,7 +38,7 @@ Vollbild und funktioniert auch ohne Internet.
 
 ```bash
 npm start   # Server auf http://localhost:8080
-npm test    # prüft, dass jede Musterlösung ihre Übung besteht
+npm test    # prüft, dass jede Musterlösung ihre Lektion bzw. Trainingsaufgabe besteht
 ```
 
 ## Aufbau
@@ -43,6 +47,7 @@ npm test    # prüft, dass jede Musterlösung ihre Übung besteht
 | --- | --- |
 | `js/shell.js` | Simulierte Bash: Parser (Pipes, Umleitungen, `&&`, Quotes, Variablen, Wildcards), virtuelles Dateisystem, ~40 Befehle |
 | `js/lessons.js` | Kapitel und Übungen, jeweils mit Prüffunktion |
+| `js/drills.js` | Trainingsaufgaben; geprüft wird automatisch gegen die Musterlösung |
 | `js/terminal.js` | Terminal-Oberfläche mit Sondertasten |
 | `js/app.js` | Navigation, Fortschritt, freies Terminal, Spickzettel |
 | `sw.js` | Service Worker für den Offline-Betrieb |
@@ -63,5 +68,13 @@ In `js/lessons.js` ein Objekt zu einem Kapitel hinzufügen:
   check: ({ shell, line, output }) => /* true, wenn gelöst */,
 }
 ```
+
+### Eigene Trainingsaufgabe hinzufügen
+
+In `js/drills.js` reicht eine Zeile im passenden Thema, z. B.
+`t('Zeige die ersten 2 Zeilen von <code>obst.txt</code>.', 'head -n 2 obst.txt')`.
+Eine Prüffunktion braucht es nicht: Erzeugt die Musterlösung eine Ausgabe, muss die Ausgabe
+gleich sein. Verändert sie Dateien oder den Ordner, muss das Ergebnis an denselben Stellen
+gleich sein. Dadurch zählen auch andere richtige Lösungswege.
 
 Danach in `sw.js` die Cache-Version erhöhen, damit installierte Apps das Update laden.

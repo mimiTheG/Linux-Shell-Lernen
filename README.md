@@ -15,6 +15,12 @@ Browser, auf deinem Gerät wird nichts ausgeführt.
   (z. B. `grep -v`, `find -type`, `cut -d -f`, `chmod 755`), jeweils 5–8 Aufgaben
 - **Challenges**: 10 zufällige Aufgaben aus den Kapiteln, die du schon begonnen hast, ohne Erklärung.
   Allein gelöst gibt 2 Punkte, mit Tipp/Lösung 1 Punkt. Am Ende siehst du, was du nochmal üben solltest.
+- **Vokabeln**: 200 Karteikarten zu 30 Befehlen und 95 Optionen, in drei Abfragearten:
+  Bedeutung → Befehl („Erstelle ein Verzeichnis“ → `mkdir`), Option → lange Form
+  (`mkdir -p` → `--parents`) und Bedeutung → Option. Gelernt wird nach dem Karteikasten-Prinzip
+  (richtig: wieder nach 1, 3, 7, 14, 30 Tagen; falsch: sofort nochmal). Zu jedem Befehl gibt es
+  eine Eselsbrücke (*mkdir = make directory*) und eine Liste zum Nachschlagen.
+- Die Übungs-Shell versteht neben Kurz- auch lange Optionen (`grep --ignore-case`, `head --lines=3`).
 - **Freies Terminal** zum Ausprobieren (im Training-Bereich). Dein Dateisystem bleibt erhalten und lässt sich zurücksetzen.
 - **Spickzettel** mit Suche
 - **Sondertasten-Leiste** (Tab, ↑/↓, `|`, `/`, `~`, `>` …), weil Handy-Tastaturen diese Zeichen kaum bieten
@@ -48,6 +54,7 @@ npm test    # prüft, dass jede Musterlösung ihre Lektion bzw. Trainingsaufgabe
 | `js/shell.js` | Simulierte Bash: Parser (Pipes, Umleitungen, `&&`, Quotes, Variablen, Wildcards), virtuelles Dateisystem, ~40 Befehle |
 | `js/lessons.js` | Kapitel und Übungen, jeweils mit Prüffunktion |
 | `js/drills.js` | Trainingsaufgaben; geprüft wird automatisch gegen die Musterlösung |
+| `js/vocab.js` | Vokabeln (Befehle, Optionen, lange Formen), Antwortprüfung, Karteikasten |
 | `js/terminal.js` | Terminal-Oberfläche mit Sondertasten |
 | `js/app.js` | Navigation, Fortschritt, freies Terminal, Spickzettel |
 | `sw.js` | Service Worker für den Offline-Betrieb |

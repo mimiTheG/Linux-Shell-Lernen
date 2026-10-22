@@ -486,7 +486,7 @@
       }
 
       const name = argv[0];
-      const args = argv.slice(1);
+      const args = expandLongOptions(name, argv.slice(1));
       const ctx = {
         shell: this,
         stdin,
@@ -1278,6 +1278,46 @@
       ctx.write('\nMehr zu einem Befehl: man BEFEHL\n');
     },
   };
+  // Lange Optionen (--parents) auf ihre Kurzform (-p) abbilden, damit beide
+  // Schreibweisen funktionieren. --lines=3 wird zu -n 3.
+  const LONG_OPTIONS = {
+    ls: { all: 'a', 'human-readable': 'h', reverse: 'r', directory: 'd' },
+    mkdir: { parents: 'p' },
+    rm: { recursive: 'r', force: 'f', verbose: 'v' },
+    cp: { recursive: 'r' },
+    cat: { number: 'n' },
+    head: { lines: 'n' },
+    tail: { lines: 'n' },
+    wc: { lines: 'l', words: 'w', bytes: 'c', chars: 'm' },
+    grep: {
+      'ignore-case': 'i',
+      'invert-match': 'v',
+      count: 'c',
+      'line-number': 'n',
+      recursive: 'r',
+      'files-with-matches': 'l',
+      'extended-regexp': 'E',
+      'fixed-strings': 'F',
+    },
+    sort: { 'numeric-sort': 'n', reverse: 'r', unique: 'u' },
+    uniq: { count: 'c', repeated: 'd', unique: 'u' },
+    cut: { delimiter: 'd', fields: 'f' },
+    chmod: { recursive: 'R' },
+  };
+
+  function expandLongOptions(name, args) {
+    const map = LONG_OPTIONS[name];
+    if (!map) return args;
+    const res = [];
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--') return res.concat(args.slice(i));
+      const m = /^--([a-z-]+)(?:=(.*))?$/.exec(args[i]);
+      if (m && map[m[1]]) res.push('-' + map[m[1]], ...(m[2] !== undefined ? [m[2]] : []));
+      else res.push(args[i]);
+    }
+    return res;
+  }
+
   COMMANDS.less = COMMANDS.more = COMMANDS.cat;
   COMMANDS.vi = COMMANDS.vim = COMMANDS.nano;
   COMMANDS.sh = COMMANDS.bash;

@@ -806,3 +806,229 @@ a.dot::after {
 .result-list code {
   justify-self: start;
 }
+
+/* --- Vokabeln ---------------------------------------------------------------- */
+
+.vocab-hero .hero-prompt {
+  color: var(--term-dir);
+}
+.vocab-stats {
+  display: flex;
+  gap: 18px;
+  margin: -4px 0 16px;
+  color: var(--term-text);
+}
+.vocab-stats b {
+  font-size: 1.4rem;
+  color: #fff;
+  margin-right: 2px;
+}
+.mode-list {
+  display: grid;
+  gap: 8px;
+}
+.mode-chip {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+.mode-chip.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.mode-chip.on strong {
+  color: var(--accent);
+}
+.boxes {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  align-items: end;
+}
+.box-col {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.box-count {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.box-bar {
+  width: 100%;
+  max-width: 34px;
+  height: 64px;
+  background: var(--surface-2);
+  border-radius: 6px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.box-fill {
+  width: 100%;
+  background: var(--accent);
+  min-height: 2px;
+}
+.box-fill.box-0 {
+  background: var(--muted);
+}
+.box-fill.box-1 {
+  background: var(--term-err);
+}
+.box-fill.box-2 {
+  background: var(--term-hl);
+}
+.box-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.box-help {
+  margin: 8px 4px 0;
+}
+.vocab-list {
+  display: grid;
+  gap: 8px;
+}
+.vocab-entry summary {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  cursor: pointer;
+  list-style: none;
+}
+.vocab-entry summary::-webkit-details-marker {
+  display: none;
+}
+.vocab-entry summary .ref-cmd {
+  min-width: 64px;
+}
+.origin {
+  margin: 10px 0 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+.origin b {
+  color: var(--accent);
+  font-size: 1.05em;
+}
+.opt-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+.opt-table td {
+  padding: 6px 6px 6px 0;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+}
+.opt-table td:nth-child(1),
+.opt-table td:nth-child(2) {
+  white-space: nowrap;
+}
+.opt-table code {
+  font-size: 0.85rem;
+}
+
+.vocab-run {
+  padding: 16px;
+  max-width: 640px;
+  margin: 0 auto;
+  height: 100%;
+  overflow-y: auto;
+}
+body.in-exercise .vocab-run {
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.vocab-progress {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.vocab-card {
+  padding: 20px;
+}
+.vocab-form {
+  display: grid;
+  gap: 12px;
+}
+.vocab-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.vocab-prompt {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.vocab-prompt code {
+  font-size: 0.95em;
+  color: var(--accent);
+}
+.vocab-input {
+  width: 100%;
+  font: 600 1.2rem var(--mono);
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.vocab-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.vocab-input:disabled {
+  opacity: 0.7;
+}
+.vocab-keys {
+  display: flex;
+  gap: 8px;
+}
+.vocab-keys button {
+  min-width: 52px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font: 700 1rem var(--mono);
+}
+.vocab-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.vocab-actions .link {
+  padding: 4px;
+}
+.vocab-feedback {
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+  animation: pop 0.3s ease-out;
+}
+.vocab-feedback p {
+  margin: 0;
+}
+.vocab-feedback.right {
+  background: var(--accent-soft);
+}
+.vocab-feedback.wrong {
+  background: var(--warn-soft);
+}
+.vocab-answer code {
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: var(--surface);
+}

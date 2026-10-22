@@ -1,10 +1,11 @@
-// App-Steuerung: Navigation, Fortschritt, Übungen, Training, Challenges und Spickzettel.
+// App-Steuerung: Navigation, Fortschritt, Übungen, Training, Challenges, Vokabeln und Spickzettel.
 (function () {
   'use strict';
 
   const { Shell, MANUAL } = window.LinuxShell;
   const { CHAPTERS } = window.Lessons;
   const { DRILLS, prepare, taskCount } = window.Drills;
+  const Vocab = window.Vocab;
 
   const view = document.getElementById('view');
   const titleEl = document.getElementById('title');
@@ -36,6 +37,7 @@
   const DRILL_KEY = 'shelltrainer.drills';
   const BEST_KEY = 'shelltrainer.challengeBest';
   const SANDBOX_KEY = 'shelltrainer.sandbox';
+  const VOCAB_KEY = 'shelltrainer.vocab';
   let progress = store.get(PROGRESS_KEY, {});
   let drillProgress = store.get(DRILL_KEY, {});
 
@@ -521,6 +523,245 @@
     );
   }
 
+  // --- Vokabeln ----------------------------------------------------------------
+
+  const vocabStore = store.get(VOCAB_KEY, null) || {};
+  const vocab = { cards: vocabStore.cards || {}, modes: vocabStore.modes || Vocab.MODES.map((m) => m.id) };
+  const saveVocab = () => store.set(VOCAB_KEY, vocab);
+  let vocabRun = null;
+
+  const BOX_LABELS = ['Neu', 'Fach 1', 'Fach 2', 'Fach 3', 'Fach 4', 'Fach 5'];
+
+  function renderVocab() {
+    setChrome({ title: 'Vokabeln', tab: 'vocab' });
+    const st = Vocab.stats(vocab.cards, vocab.modes);
+    const mastered = st.boxes.slice(4).reduce((a, b) => a + b, 0);
+    const nothingDue = st.due === 0 && st.fresh === 0;
+
+    const modeChips = Vocab.MODES.map((m) => {
+      const on = vocab.modes.includes(m.id);
+      return h(
+        'button',
+        {
+          class: 'mode-chip' + (on ? ' on' : ''),
+          'aria-pressed': on ? 'true' : 'false',
+          onclick: () => {
+            if (on && vocab.modes.length === 1) return; // mindestens eine Art bleibt aktiv
+            vocab.modes = on ? vocab.modes.filter((x) => x !== m.id) : [...vocab.modes, m.id];
+            saveVocab();
+            renderVocab();
+          },
+        },
+        h('strong', {}, (on ? '✓ ' : '') + m.label),
+        h('span', { class: 'muted small' }, m.example)
+      );
+    });
+
+    const maxBox = Math.max(1, ...st.boxes);
+    show(
+      h(
+        'section',
+        { class: 'hero vocab-hero' },
+        h('div', { class: 'hero-prompt', 'aria-hidden': 'true' }, '$ man mkdir'),
+        h('h2', {}, '🧠 Vokabeln'),
+        h('p', {}, 'Befehle und Optionen wie Vokabeln lernen. Was du sicher kannst, kommt seltener dran – was du vergisst, sofort wieder.'),
+        h(
+          'div',
+          { class: 'vocab-stats' },
+          h('span', {}, h('b', {}, String(st.due)), ' fällig'),
+          h('span', {}, h('b', {}, String(st.fresh)), ' neu'),
+          h('span', {}, h('b', {}, String(mastered)), ' sitzen')
+        ),
+        h('button', { class: 'primary', onclick: () => startVocabRun(nothingDue) }, nothingDue ? 'Alles erledigt – trotzdem üben' : 'Runde starten')
+      ),
+      h('h3', { class: 'section-title' }, 'Abfragen'),
+      h('div', { class: 'mode-list' }, modeChips),
+      h('h3', { class: 'section-title' }, 'Karteikasten'),
+      h(
+        'div',
+        { class: 'card boxes' },
+        st.boxes.map((n, i) =>
+          h(
+            'div',
+            { class: 'box-col' },
+            h('span', { class: 'box-count' }, String(n)),
+            h('span', { class: 'box-bar' }, h('span', { class: 'box-fill box-' + i, style: 'height:' + Math.round((n / maxBox) * 100) + '%' })),
+            h('span', { class: 'box-label' }, BOX_LABELS[i])
+          )
+        )
+      ),
+      h('p', { class: 'muted small box-help' }, 'Richtig → ein Fach weiter (wieder fällig nach 1, 3, 7, 14, 30 Tagen). Falsch → zurück in Fach 1.'),
+      h('h3', { class: 'section-title' }, 'Alle Vokabeln zum Nachschlagen'),
+      vocabList()
+    );
+  }
+
+  function vocabList() {
+    return h(
+      'div',
+      { class: 'vocab-list' },
+      Vocab.COMMANDS.map(([cmd, meaning, origin]) => {
+        const opts = Vocab.OPTIONS.filter((o) => o[0] === cmd);
+        return h(
+          'details',
+          { class: 'card vocab-entry' },
+          h('summary', {}, h('code', { class: 'ref-cmd' }, cmd), h('span', {}, meaning)),
+          h('p', { class: 'origin', html: '💡 ' + origin }),
+          opts.length
+            ? h(
+                'table',
+                { class: 'opt-table' },
+                h('tbody', {}, opts.map(([, opt, long, m]) => h('tr', {}, h('td', {}, h('code', {}, opt)), h('td', {}, long ? h('code', {}, long) : h('span', { class: 'muted' }, '–')), h('td', {}, m))))
+              )
+            : null
+        );
+      })
+    );
+  }
+
+  function startVocabRun(extra) {
+    // „Trotzdem üben“: alle schon gelernten Karten gelten als fällig.
+    let cards = Vocab.buildSession(vocab.cards, vocab.modes, extra ? { now: Infinity } : {});
+    if (!cards.length) cards = Vocab.buildSession(vocab.cards, vocab.modes, { now: Infinity });
+    vocabRun = { queue: cards, pos: 0, total: cards.length, firstTry: new Map(), answered: false };
+    navigate('#/vokabeln/runde');
+  }
+
+  const PROMPT_LABEL = { befehl: 'Welcher Befehl?', lang: 'Wie heißt die lange Form?', option: 'Welche Option?' };
+
+  function cardTitle(card) {
+    if (card.mode === 'befehl') return h('code', {}, card.cmd);
+    return h('code', {}, card.cmd + ' ' + card.opt + (card.long ? ', ' + card.long : ''));
+  }
+
+  function renderVocabCard() {
+    if (!vocabRun) return startVocabRun(false);
+    if (vocabRun.pos >= vocabRun.queue.length) return renderVocabResult();
+    const card = vocabRun.queue[vocabRun.pos];
+    const done = vocabRun.firstTry.size;
+    setChrome({ title: 'Vokabeln', back: '#/vokabeln', focus: true });
+
+    let prompt;
+    if (card.mode === 'befehl') prompt = h('p', { class: 'vocab-prompt' }, card.meaning);
+    else if (card.mode === 'lang') prompt = h('p', { class: 'vocab-prompt' }, h('code', {}, card.cmd + ' ' + card.opt));
+    else prompt = h('p', { class: 'vocab-prompt' }, h('code', {}, card.cmd), ' ', card.meaning);
+
+    const input = h('input', {
+      class: 'vocab-input',
+      type: 'text',
+      autocapitalize: 'off',
+      autocorrect: 'off',
+      autocomplete: 'off',
+      spellcheck: 'false',
+      enterkeyhint: 'done',
+      'aria-label': 'Deine Antwort',
+      placeholder: card.mode === 'befehl' ? 'Befehl' : card.mode === 'lang' ? '--…' : '-…',
+    });
+    const feedback = h('div', { class: 'vocab-feedback', hidden: true, role: 'status' });
+    const submitBtn = h('button', { class: 'primary', type: 'submit' }, 'Prüfen');
+    const insert = (text) => {
+      input.value += text;
+      input.focus();
+    };
+    const helpers =
+      card.mode === 'befehl'
+        ? null
+        : h(
+            'div',
+            { class: 'vocab-keys' },
+            ['-', '--'].map((k) => h('button', { type: 'button', onpointerdown: (e) => e.preventDefault(), onclick: () => insert(k) }, k))
+          );
+    const dontKnow = h('button', { type: 'button', class: 'link', onclick: () => answer(null) }, 'Weiß ich nicht');
+
+    const answer = (value) => {
+      if (vocabRun.answered) return;
+      vocabRun.answered = true;
+      const correct = value !== null && Vocab.isCorrect(card, value);
+      if (!vocabRun.firstTry.has(card.id)) {
+        vocabRun.firstTry.set(card.id, correct);
+        Vocab.review(vocab.cards, card, correct);
+        saveVocab();
+      }
+      // Falsche Karten kommen in dieser Runde nochmal – drei Karten später.
+      if (!correct) vocabRun.queue.splice(Math.min(vocabRun.pos + 4, vocabRun.queue.length), 0, card);
+      input.disabled = true;
+      dontKnow.remove();
+      if (helpers) helpers.remove();
+      feedback.hidden = false;
+      feedback.className = 'vocab-feedback ' + (correct ? 'right' : 'wrong');
+      feedback.replaceChildren(
+        h('strong', {}, correct ? '✅ Richtig!' : value === null ? '📖 So geht’s:' : '❌ Nicht ganz.'),
+        !correct && value !== null ? h('span', { class: 'small' }, 'Deine Antwort: ', h('code', {}, value || '–')) : null,
+        h('div', { class: 'vocab-answer' }, cardTitle(card)),
+        h('p', {}, card.meaning),
+        card.origin ? h('p', { class: 'origin', html: '💡 ' + card.cmd + ': ' + card.origin }) : null
+      );
+      submitBtn.textContent = 'Weiter →';
+      submitBtn.focus();
+    };
+
+    const form = h(
+      'form',
+      {
+        class: 'vocab-form',
+        autocomplete: 'off',
+        onsubmit: (e) => {
+          e.preventDefault();
+          if (!vocabRun.answered) {
+            if (!input.value.trim()) return input.focus();
+            return answer(input.value);
+          }
+          vocabRun.pos++;
+          vocabRun.answered = false;
+          renderVocabCard();
+        },
+      },
+      h('label', { class: 'vocab-label' }, PROMPT_LABEL[card.mode]),
+      prompt,
+      input,
+      helpers,
+      feedback,
+      h('div', { class: 'vocab-actions' }, submitBtn, dontKnow)
+    );
+
+    show(
+      h(
+        'div',
+        { class: 'vocab-run' },
+        h('div', { class: 'vocab-progress' }, h('span', { class: 'muted small' }, 'Karte ' + Math.min(done + 1, vocabRun.total) + ' von ' + vocabRun.total), progressBar(done, vocabRun.total)),
+        h('section', { class: 'card vocab-card' }, form)
+      )
+    );
+    input.focus();
+  }
+
+  function renderVocabResult() {
+    setChrome({ title: 'Vokabeln', back: '#/vokabeln', tab: 'vocab' });
+    const results = [...vocabRun.firstTry.entries()];
+    const right = results.filter(([, ok]) => ok).length;
+    const wrongCards = results.filter(([, ok]) => !ok).map(([id]) => Vocab.CARDS.find((c) => c.id === id));
+    show(
+      h(
+        'section',
+        { class: 'hero result-hero' },
+        h('h2', {}, right === results.length ? '🏆 Alles gewusst!' : right >= results.length * 0.7 ? '🎉 Gut gemacht!' : '💪 Weiter so!'),
+        h('p', { class: 'result-score' }, right + ' / ' + results.length),
+        h('p', {}, 'beim ersten Versuch richtig'),
+        h('button', { class: 'primary', onclick: () => startVocabRun(false) }, 'Neue Runde')
+      ),
+      wrongCards.length
+        ? [
+            h('h3', { class: 'section-title' }, 'Diese Karten kommen bald wieder'),
+            h(
+              'div',
+              { class: 'result-list' },
+              wrongCards.map((c) => h('div', { class: 'card' }, h('div', {}, cardTitle(c)), h('span', { class: 'small' }, c.meaning)))
+            ),
+          ]
+        : null
+    );
+  }
+
   // --- Freies Terminal --------------------------------------------------------
 
   let sandbox = null;
@@ -642,6 +883,8 @@
       if (drill) return renderDrill(drill, 0);
     } else if (parts[0] === 'challenge') {
       return renderChallenge();
+    } else if (parts[0] === 'vokabeln') {
+      return parts[1] === 'runde' ? renderVocabCard() : renderVocab();
     } else if (parts[0] === 'terminal') {
       return renderSandbox();
     } else if (parts[0] === 'spickzettel') {
@@ -653,7 +896,7 @@
   tabbar.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    navigate({ learn: '#/', training: '#/training', reference: '#/spickzettel' }[b.dataset.tab]);
+    navigate({ learn: '#/', training: '#/training', vocab: '#/vokabeln', reference: '#/spickzettel' }[b.dataset.tab]);
   });
   window.addEventListener('hashchange', render);
   render();

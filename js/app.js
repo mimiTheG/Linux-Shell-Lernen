@@ -162,6 +162,7 @@
         { class: 'task-actions' },
         h('button', { class: 'chip', onclick: () => showHint(false) }, '💡 Tipp'),
         h('button', { class: 'chip', onclick: () => showHint(true) }, '👀 Lösung'),
+        h('button', { class: 'chip', onclick: () => resetFiles(), title: 'Dateien und Ordner wie zu Beginn der Aufgabe' }, '↺ Zurücksetzen'),
         o.actions || []
       ),
       hintBox,
@@ -191,9 +192,19 @@
       },
     });
     if (!isTouch()) term.focus();
-  }
 
-  const restartButton = (fn) => h('button', { class: 'icon-btn', 'aria-label': 'Aufgabe neu starten', title: 'Neu starten', onclick: fn }, '↺');
+    // Stellt Dateien, Ordner und aktuellen Ordner wie zu Beginn der Aufgabe her.
+    // Verlauf (↑), Tipps und ein schon erreichtes „Geschafft“ bleiben erhalten.
+    function resetFiles() {
+      const history = shell.history;
+      shell.reset();
+      o.setup(shell);
+      shell.history = history;
+      term.print('\x1b[33m↺ Ordnerstruktur zurückgesetzt – alles wieder wie am Anfang der Aufgabe.\x1b[0m');
+      term.updatePrompt();
+      if (!isTouch()) term.focus();
+    }
+  }
 
   // --- Lernen ---------------------------------------------------------------
 
@@ -289,7 +300,7 @@
     const chapterFinished = !ch.exercises[idx + 1];
     const drills = DRILLS.filter((d) => d.chapter === ch.id);
     renderTaskView({
-      chrome: { title: ch.title, back: '#/kapitel/' + ch.id, extra: restartButton(() => renderExercise(ch, ex)) },
+      chrome: { title: ch.title, back: '#/kapitel/' + ch.id },
       meta: ch.icon + ' Übung ' + (idx + 1) + ' von ' + ch.exercises.length + (isDone(ch, ex) ? ' · ✓ erledigt' : ''),
       heading: ex.title,
       task: ex.task,
@@ -391,7 +402,7 @@
           ? { label: 'Weiter →', go: () => navigate('#/drill/' + drill.id + '/' + nextOpen) }
           : { label: 'Fertig ✓', go: () => navigate('#/training') };
     renderTaskView({
-      chrome: { title: drill.title, back: '#/training', extra: restartButton(() => renderDrill(drill, i)) },
+      chrome: { title: drill.title, back: '#/training' },
       meta: [h('span', {}, drill.subtitle + ' · ' + (i + 1) + ' / ' + drill.tasks.length), taskDots(drill, i)],
       task: task.task,
       hint: drill.hint,

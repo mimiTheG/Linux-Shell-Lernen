@@ -11,6 +11,7 @@ Browser, auf deinem Gerät wird nichts ausgeführt.
   `tail`, `wc`), Suchen & Filtern (`grep`, `find`, `sort`, `uniq`, `cut`, Pipes),
   Rechte & Skripte (`chmod`, `./skript.sh`) und Profi-Tricks (`&&`, Variablen, lange Pipes)
 - Zu jeder Übung gibt es eine Erklärung, einen Tipp und die Lösung. Der Fortschritt wird gespeichert.
+- **↺ Zurücksetzen** in jeder Aufgabe (auch in Challenges) stellt die Ordnerstruktur wieder her, falls etwas schiefgegangen ist.
 - **Training** mit 243 weiteren Aufgaben in 39 Themen, eins pro Befehls-Options-Kombination
   (z. B. `grep -v`, `find -type`, `cut -d -f`, `chmod 755`), jeweils 5–8 Aufgaben
 - **Challenges**: 10 zufällige Aufgaben aus den Kapiteln, die du schon begonnen hast, ohne Erklärung.
